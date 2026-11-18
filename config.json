@@ -1,0 +1,27 @@
+{
+  "_comment": "Edit this file each term, then the scheduled Action does the rest. See README.md for how to find new IDs.",
+  "term": "Term 3, 2026",
+  "timezoneOffsetHours": 10,
+  "seasons": [
+    {
+      "label": "2026 - Trimester 3",
+      "associationSeasonId": "4f3d0fea-c36e-11f0-a05d-7f9e8a3a8eea",
+      "competitionGroupIds": [
+        "e224c106-93df-45fc-b90a-f106e1f4dba6",
+        "6b0b8ece-ebb9-44f6-b66c-864ac0237952",
+        "9dcbf4eb-f176-452a-8a14-0fa99d78461e",
+        "f503b0cb-2d44-4025-b76a-7b55abb4fe67"
+      ]
+    },
+    {
+      "label": "Junior TAS - 2026 Term 3",
+      "associationSeasonId": "f50414ec-d551-11f0-9281-1ddeababb96b",
+      "competitionGroupIds": [
+        "e24f39eb-c7dc-42df-b307-2a89b809e5c8",
+        "f5990ffa-8bd8-4681-a59c-824e6975501b",
+        "505028fc-dbbc-478f-87f0-76c4421ac95e",
+        "c34ea2da-02fa-4f3b-93aa-b8bfdc03b2e5"
+      ]
+    }
+  ]
+}
