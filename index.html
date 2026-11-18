@@ -51,6 +51,17 @@ button.tbtn:hover{background:rgba(255,255,255,.22)}
 main{flex:1 1 auto; display:grid; grid-template-columns:minmax(0,1fr) 24rem; gap:1rem; padding:1rem; align-items:start}
 @media (max-width:920px){ main{grid-template-columns:minmax(0,1fr)} }
 .card{background:var(--card); border:1px solid var(--line); border-radius:12px; box-shadow:0 1px 2px rgba(16,32,56,.05)}
+/* Main panel heading. The sport is the thing you should read from across the room,
+   so it carries the size and the colour; round and page sit beside it as detail. */
+.mainhead{display:flex; align-items:baseline; gap:.8rem; flex-wrap:wrap; margin:0 0 .75rem}
+.sporttag{margin:0; font-size:1.7rem; line-height:1; font-weight:800; letter-spacing:.05em;
+  text-transform:uppercase; color:var(--gold); text-shadow:0 2px 8px rgba(0,0,0,.5)}
+body.kiosk .sporttag{font-size:2.2rem}
+.roundtag{font-size:.78rem; letter-spacing:.11em; text-transform:uppercase; color:var(--mut)}
+.pagetag{font-size:.68rem; letter-spacing:.08em; text-transform:uppercase; color:#cfe0f0;
+  background:rgba(255,255,255,.1); border:1px solid var(--line); padding:.14rem .5rem; border-radius:999px}
+.mainhead .rule{flex:1 1 4rem; height:2px; min-width:2rem;
+  background:linear-gradient(90deg,var(--accent),rgba(196,18,48,0))}
 .sec-title{display:flex; align-items:center; gap:.5rem; margin:0 0 .6rem}
 .sec-title h2{margin:0; font-size:.76rem; letter-spacing:.13em; text-transform:uppercase; color:var(--mut)}
 .sec-title .rule{flex:1; height:1px; background:var(--line)}
@@ -268,7 +279,12 @@ button.tbtn{background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.28)
 </div>
 <main>
   <section id="newsCol">
-    <div class="sec-title"><h2 id="dayLbl">Latest</h2><span class="rule"></span></div>
+    <div class="mainhead">
+      <h2 class="sporttag" id="sportTag"></h2>
+      <span class="roundtag" id="roundTag"></span>
+      <span class="pagetag" id="pageTag"></span>
+      <span class="rule"></span>
+    </div>
     <article class="card lead" id="lead"></article>
     <div class="sec-title" style="margin-top:1rem"><h2>More from the round</h2><span class="rule"></span></div>
     <div class="hgrid" id="hgrid"></div>
@@ -542,12 +558,13 @@ function buildPages(){
 function curPage(){ var n=PAGES.length; return PAGES[((ST.pageIdx%n)+n)%n] }
 function renderMainHead(){
   var pg=curPage();
-  var bits=[];
-  if(LAST) bits.push("Round "+LASTROUND+" · "+niceDate(LAST));
-  if(pg.ci>=0&&ST.sport==="all") bits.push(compShort(pg.ci));
-  var lbl=bits.join(" · ")||"Latest";
-  if(pg.total>1) lbl+="  ("+(pg.page+1)+" of "+pg.total+")";
-  $("dayLbl").textContent=lbl;
+  var sport = pg.ci>=0 ? compShort(pg.ci) : (ST.sport==="all" ? "Latest results" : compShort(ST.sport));
+  var el=$("sportTag");
+  el.textContent=sport;
+  el.classList.remove("fade"); void el.offsetWidth; el.classList.add("fade");
+  $("roundTag").textContent = LAST ? ("Round "+LASTROUND+" · "+niceDate(LAST)) : "";
+  $("pageTag").textContent = pg.total>1 ? ((pg.page+1)+" of "+pg.total) : "";
+  $("pageTag").style.display = pg.total>1 ? "" : "none";
 }
 
 function renderLead(){
@@ -631,16 +648,25 @@ function renderSnap(){
   order.sort(function(a,b){ return compShort(a).localeCompare(compShort(b)) });
   var roundTotal=recordFor(dayList.filter(function(m){return m.hOrg===id||m.aOrg===id}));
 
-  // one sport at a time, cycling: the rail has no room for all four at once
+  /* The sport shown here follows the main panel rather than cycling on its own,
+     so the headlines, the ladder and this record all describe the same sport. */
+  var want=curPage().ci;
+  if(want==null||want<0) want=(ST.sport==="all"?null:ST.sport);
   var single="";
-  if(order.length){
-    var n=order.length, k=((ST.snapIdx%n)+n)%n, ci=order[k], r=recordFor(bySport[ci]);
+  if(want!=null && bySport[want]){
+    var r=recordFor(bySport[want]);
     single='<div class="sportone fade">'+
-      '<div class="srow"><span class="sname">'+esc(compShort(ci))+'</span>'+
+      '<div class="srow"><span class="sname">'+esc(compShort(want))+'</span>'+
         '<span class="scount">'+wdlText(r)+'</span></div>'+
       barFor(r)+
-      '<div class="legend"><span>'+r.n+' match'+(r.n===1?'':'es')+'</span>'+
-        '<span style="margin-left:auto">'+(n>1?(k+1)+' / '+n:'')+'</span></div></div>';
+      '<div class="legend"><span>'+r.n+' match'+(r.n===1?'':'es')+' this round</span></div></div>';
+  } else if(want!=null){
+    single='<div class="sportone fade"><div class="srow"><span class="sname">'+esc(compShort(want))+'</span></div>'+
+      '<div class="recl" style="padding-top:.3rem">No '+esc(orgName(id))+' matches in this round.</div></div>';
+  } else if(order.length){
+    single=order.map(function(ci){ var r=recordFor(bySport[ci]);
+      return '<div class="sportrow"><span class="nm">'+esc(compShort(ci))+'</span>'+
+        '<span class="ct">'+wdlText(r)+'</span>'+barFor(r)+'</div>' }).join('');
   } else {
     single='<div class="recl" style="padding-top:.6rem">No '+esc(orgName(id))+' matches in this round.</div>';
   }
@@ -659,13 +685,27 @@ function renderSnap(){
 }
 
 /* ---------- rotating ladders ---------- */
-var LADS=[];
+var LADS=[], LADS_CI=null;
+/* The ladder rail follows whichever sport the main panel is showing, so the whole
+   screen is about one sport at a time. Ladders that include the selected school
+   come first, so the row you care about appears early in the cycle. */
 function buildLads(){
+  var want = curPage().ci;
+  if(want == null || want < 0) want = (ST.sport === "all" ? null : ST.sport);
+  LADS_CI = want;
   LADS=D.L.map(function(L,li){return {li:li,ci:L[0],grade:L[1],gsort:L[2],pool:L[3],hs:L[4],rows:L[5]}})
-    .filter(function(x){ return ST.sport==="all"||x.ci===ST.sport })
+    .filter(function(x){ return want==null ? true : x.ci===want })
     .filter(function(x){ return x.rows.length>0 });
   var mine=function(x){ return x.rows.some(function(r){return teamOrg(r[1])===ST.home})?0:1 };
   LADS.sort(function(a,b){ return mine(a)-mine(b) || a.ci-b.ci || a.gsort-b.gsort });
+}
+/* Called when the main panel turns over. Rebuilds the rail only when the sport
+   actually changed, so the ladder keeps cycling smoothly within a sport. */
+function syncRailToPage(){
+  var want = curPage().ci;
+  if(want == null || want < 0) want = (ST.sport === "all" ? null : ST.sport);
+  if(want === LADS_CI) return;
+  buildLads(); ST.rot = 0; renderRot();
 }
 function renderRot(){
   if(!LADS.length){ $("rotTitle").textContent="Ladders"; $("rotBody").innerHTML='<div class="empty">No ladders for this selection.</div>'; return }
@@ -686,15 +726,16 @@ function renderRot(){
   b.classList.remove("fade"); void b.offsetWidth; b.classList.add("fade");
   restartProg();
 }
-var ROT_MS=10000, LEAD_MS=20000, SNAP_MS=10000, rotTimer=null, leadTimer=null, snapTimer=null;
+var ROT_MS=10000, LEAD_MS=20000, rotTimer=null, leadTimer=null;
 function restartProg(){ var p=$("prog"); p.classList.remove("run"); void p.offsetWidth;
   p.firstElementChild.style.animationDuration=ROT_MS+"ms"; if(!ST.rotPaused) p.classList.add("run") }
 function startTimers(){ stopTimers(); if(ST.rotPaused) return;
   rotTimer=setInterval(function(){ST.rot++;renderRot()},ROT_MS);
-  leadTimer=setInterval(function(){ST.pageIdx++;renderLead();renderGrid()},LEAD_MS);
-  snapTimer=setInterval(function(){ST.snapIdx++;renderSnap()},SNAP_MS) }
+  leadTimer=setInterval(function(){
+    ST.pageIdx++; renderLead(); renderGrid(); syncRailToPage(); renderSnap();
+  },LEAD_MS) }
 function stopTimers(){ if(rotTimer)clearInterval(rotTimer); if(leadTimer)clearInterval(leadTimer);
-  if(snapTimer)clearInterval(snapTimer); rotTimer=leadTimer=snapTimer=null }
+  rotTimer=leadTimer=null }
 
 /* ---------- ticker ---------- */
 function renderTicker(){
